@@ -97,27 +97,45 @@ class TikTokScraper:
 
 class TwitterScraper:
     def __init__(self):
-        self.client = ApifyClient(APIFY_API_KEY)
+        self.api_key = os.getenv('APIFY_API_KEY')
+        if not self.api_key:
+            raise ValueError("Missing required environment variable: APIFY_API_KEY")
+            
+        self.client = ApifyClient(self.api_key)
 
     async def get_trending_topics(self) -> List[Dict[str, Any]]:
-        # Use Apify's Twitter Scraper
-        run_input = {
-            "searchTerms": ["trending"],
-            "maxTweets": 100,
-            "language": "en"
-        }
-        
-        run = self.client.actor("quacker/twitter-scraper").call(run_input=run_input)
-        trends = []
-        
-        for tweet in self.client.dataset(run["defaultDatasetId"]).iterate_items():
-            trends.append({
-                "topic": tweet.get("full_text", ""),
-                "engagement": {
-                    "retweets": tweet.get("retweet_count", 0),
-                    "likes": tweet.get("favorite_count", 0)
-                },
-                "created_at": tweet.get("created_at", "")
-            })
-        
-        return trends 
+        try:
+            run_input = {
+                "searchTerms": ["trending"],
+                "maxTweets": 100,
+                "language": "en"
+            }
+            
+            # Start the Apify actor and wait for results
+            run = self.client.actor("quacker/twitter-scraper").call(run_input=run_input)
+            if not run:
+                raise ValueError("Failed to start Apify actor")
+                
+            trends = []
+            dataset_id = run.get("defaultDatasetId")
+            if not dataset_id:
+                raise ValueError("No dataset ID returned from Apify")
+                
+            # Fetch and process tweets
+            for tweet in self.client.dataset(dataset_id).iterate_items():
+                trends.append({
+                    "topic": tweet.get("full_text", ""),
+                    "engagement": {
+                        "retweets": tweet.get("retweet_count", 0),
+                        "likes": tweet.get("favorite_count", 0)
+                    },
+                    "created_at": tweet.get("created_at", "")
+                })
+            
+            return trends
+            
+        except Exception as e:
+            # Log the error for debugging
+            print(f"Error in TwitterScraper.get_trending_topics: {str(e)}")
+            # Re-raise the exception to be handled by FastAPI
+            raise ValueError(f"Failed to fetch Twitter trends: {str(e)}") 
