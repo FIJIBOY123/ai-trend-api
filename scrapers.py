@@ -1,4 +1,5 @@
 from typing import List, Dict, Any
+import os
 import praw
 from pytrends.request import TrendReq
 from apify_client import ApifyClient
@@ -15,10 +16,18 @@ from config import (
 
 class RedditScraper:
     def __init__(self):
+        required_vars = ['REDDIT_CLIENT_ID', 'REDDIT_CLIENT_SECRET', 'REDDIT_USER_AGENT']
+        missing_vars = [var for var in required_vars if not os.getenv(var)]
+        
+        if missing_vars:
+            raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+            
         self.reddit = praw.Reddit(
-            client_id=REDDIT_CLIENT_ID,
-            client_secret=REDDIT_CLIENT_SECRET,
-            user_agent=REDDIT_USER_AGENT
+            client_id=os.getenv('REDDIT_CLIENT_ID'),
+            client_secret=os.getenv('REDDIT_CLIENT_SECRET'),
+            user_agent=os.getenv('REDDIT_USER_AGENT'),
+            username=os.getenv('REDDIT_USERNAME'),
+            password=os.getenv('REDDIT_PASSWORD')
         )
 
     def get_trending_topics(self) -> List[Dict[str, Any]]:
